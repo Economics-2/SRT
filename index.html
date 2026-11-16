@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ভিডিও + ভয়েস ওভার + SRT রেন্ডারার</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&family=Hind+Siliguri:wght@400;700&family=Tiro+Bangla&family=Baloo+Da+2:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f4f8;--panel:#fff;--ink:#14162b;--mut:#62667f;--line:#d9dbe8;--acc:#3b3fe0;--accI:#fff;--stage:#0b0c18;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e0f1c;--panel:#171932;--ink:#eceefb;--mut:#9a9eb9;--line:#2b2e52;--acc:#8b8fff;--accI:#0e0f1c}}
+:root[data-theme="dark"]{--bg:#0e0f1c;--panel:#171932;--ink:#eceefb;--mut:#9a9eb9;--line:#2b2e52;--acc:#8b8fff;--accI:#0e0f1c}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans Bengali",system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 4px}
+p.sub{margin:0 0 18px;color:var(--mut)}
+.grid{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:860px){.grid{grid-template-columns:1.5fr 1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stage{background:var(--stage);border-radius:8px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:180px}
+canvas{max-width:100%;max-height:60vh;display:block}
+.drop{display:block;border:1.5px dashed var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;cursor:pointer}
+.drop b{display:block;font-size:.95rem}
+.drop span{color:var(--mut);font-size:.85rem;word-break:break-all}
+.drop.ok{border-style:solid;border-color:var(--acc)}
+.drop input{display:none}
+.row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:.9rem}
+.row label{flex:0 0 112px;color:var(--mut)}
+.row input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
+.row output{flex:0 0 46px;text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+.row input[type=number],.row select{flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;min-width:0}
+.row input[type=color]{width:40px;height:30px;border:1px solid var(--line);border-radius:6px;background:none;padding:0}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--accI);border-color:var(--acc);font-weight:700}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,.drop:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.bar{display:flex;gap:8px;margin-top:10px;align-items:center}
+.bar input[type=range]{flex:1;accent-color:var(--acc)}
+.t{font-variant-numeric:tabular-nums;color:var(--mut);font-size:.85rem}
+.prog{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:12px;display:none}
+.prog i{display:block;height:100%;width:0;background:var(--acc)}
+#msg{margin:8px 0 0;color:var(--mut);font-size:.9rem}
+#out{display:none;margin-top:14px}
+#out video{width:100%;max-height:50vh;border-radius:8px;background:#000}
+a.dl{display:inline-block;margin-top:10px;text-decoration:none}
+h2{font-size:1.05rem;margin:0 0 10px}
+
+html,body{height:100%;overflow:hidden}
+body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+.app{display:flex;flex-direction:column;height:100%;max-width:560px;margin:0 auto}
+.top{flex:0 0 auto;padding:8px 14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.stage{flex:1 1 auto;min-height:120px;position:relative;border-radius:0}
+.stage canvas{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%}
+.bar{flex:0 0 auto;padding:8px 12px;margin:0;gap:8px}
+.bar button{padding:8px 12px;min-width:64px}
+.prog{flex:0 0 auto;margin:0 12px 4px}
+#msg{flex:0 0 auto;margin:0;padding:2px 14px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.8rem}
+.tabs{position:relative;flex:0 0 auto;display:flex;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--line);background:var(--panel)}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;border:0;border-radius:0;background:none;padding:11px 14px;color:var(--mut);font-size:.9rem;white-space:nowrap;transition:color .25s}
+.tabs button.on{color:var(--acc);font-weight:700}
+#ind{position:absolute;bottom:0;left:0;height:3px;width:0;background:var(--acc);border-radius:3px 3px 0 0;transition:left .35s cubic-bezier(.2,.8,.2,1),width .35s cubic-bezier(.2,.8,.2,1)}
+.dock{flex:0 0 auto;height:min(46dvh,380px);overflow:hidden;background:var(--panel)}
+.track{display:flex;height:100%;transition:transform .38s cubic-bezier(.22,.8,.25,1);will-change:transform}
+.pane{flex:0 0 100%;min-width:0;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:12px 14px 16px}
+.row input[type=number],.row select,.row input[type=text]{min-height:36px}
+#out{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.65);padding:calc(16px + env(safe-area-inset-top,0px)) 16px 16px;overflow:auto;margin:0}
+#out .card{background:var(--panel);border-radius:14px;padding:14px;max-width:520px;margin:0 auto}
+@media (prefers-reduced-motion:reduce){.track,#ind{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">🎬 <span>SRT ভিডিও রেন্ডারার</span></header>
+<div class="stage"><canvas id="cv" width="640" height="360"></canvas></div>
+<div class="bar">
+<button id="pp" disabled>প্লে</button>
+<input type="range" id="seek" min="0" max="1000" value="0" disabled aria-label="টাইমলাইন">
+<span class="t" id="tm">0:00 / 0:00</span>
+<button class="pri" id="rb" disabled>রেন্ডার</button>
+</div>
+<div class="prog" id="prog"><i id="pb"></i></div>
+<p id="msg">ভিডিও ফাইল বেছে নিন।</p>
+<nav class="tabs" id="tabs"><button type="button">📁 ফাইল</button><button type="button">🎙 ভয়েস</button><button type="button">🎚 মিক্স</button><button type="button">💬 সাবটাইটেল</button><button type="button">✨ ইফেক্ট</button><button type="button">⚙ আউটপুট</button><i id="ind"></i></nav>
+<div class="dock" id="dock"><div class="track" id="track"><section class="pane">
+<label class="drop" id="d1"><b>ভিডিও</b><span id="n1">MP4, WebM, MOV</span><input type="file" id="f1" accept="video/*"></label>
+<label class="drop" id="d2"><b>ভয়েস ওভার (ঐচ্ছিক)</b><span id="n2">MP3, WAV, M4A</span><input type="file" id="f2" accept="audio/*"></label>
+<label class="drop" id="d3"><b>সাবটাইটেল SRT (ঐচ্ছিক)</b><span id="n3">.srt</span><input type="file" id="f3" accept=".srt,.txt"></label>
+<textarea id="se" rows="5" placeholder="অথবা এখানে SRT পেস্ট বা এডিট করুন" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:.85rem;margin-bottom:10px"></textarea>
+<label class="drop" id="d4"><b>ব্যাকগ্রাউন্ড মিউজিক (ঐচ্ছিক)</b><span id="n4">MP3, WAV</span><input type="file" id="f4" accept="audio/*"></label>
+</section><section class="pane">
+<div class="row"><label for="tt">ফোনের কণ্ঠে পড়ুন</label><input type="checkbox" id="tt" style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="vs">কণ্ঠ</label><select id="vs"></select></div>
+<div class="row"><label for="tr">গতি</label><input type="range" id="tr" min="0.7" max="1.6" step="0.1" value="1"><output id="tro">1.0x</output></div>
+<div class="row"><label for="tf">সময়ে ফিট করুন</label><input type="checkbox" id="tf" checked style="accent-color:var(--acc);width:20px;height:20px"></div>
+<p class="t" id="tn"></p>
+</section><section class="pane">
+<div class="row"><label for="vv">ভিডিওর শব্দ</label><input type="range" id="vv" min="0" max="150" value="30"><output id="vvo">30%</output></div>
+<div class="row"><label for="av">ভয়েস ওভার</label><input type="range" id="av" min="0" max="200" value="100"><output id="avo">100%</output></div>
+<div class="row"><label for="bv">মিউজিকের শব্দ</label><input type="range" id="bv" min="0" max="100" value="20"><output id="bvo">20%</output></div>
+<div class="row"><label for="so">SRT সময়ের শিফট (সে.)</label><input type="number" id="so" step="0.1" value="0"></div>
+<div class="row"><label for="ao">ভয়েসের শিফট (সে.)</label><input type="number" id="ao" step="0.1" value="0"></div>
+</section><section class="pane">
+<div class="row"><label for="sz">আকার</label><input type="range" id="sz" min="2" max="12" step="0.5" value="5.5"><output id="szo">5.5%</output></div>
+<div class="row"><label for="bt">নিচ থেকে দূরত্ব</label><input type="range" id="bt" min="2" max="40" value="8"><output id="bto">8%</output></div>
+<div class="row" style="flex-wrap:wrap"><button type="button" data-p="classic">ক্লাসিক</button><button type="button" data-p="tiktok">টিকটক</button><button type="button" data-p="neon">নিওন</button><button type="button" data-p="minimal">মিনিমাল</button></div>
+<div class="row"><label for="ff">ফন্ট</label><select id="ff"><option value="Noto Sans Bengali">Noto Sans Bengali</option><option value="Hind Siliguri">Hind Siliguri</option><option value="Tiro Bangla">Tiro Bangla (সেরিফ)</option><option value="Baloo Da 2">Baloo Da 2</option></select></div>
+<div class="row"><label for="fd">ফেড অ্যানিমেশন</label><input type="checkbox" id="fd" checked style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="wm">ওয়াটারমার্ক</label><input type="text" id="wm" placeholder="চ্যানেলের নাম" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit"><select id="wp" style="flex:0 0 72px"><option value="r">ডানে</option><option value="l">বামে</option></select></div>
+<div class="row"><label for="fc">লেখার রং</label><input type="color" id="fc" value="#ffffff"><label for="bg" style="flex:0 0 auto">ব্যাকগ্রাউন্ড</label><input type="color" id="bg" value="#000000"></div>
+<div class="row"><label for="ba">ব্যাকগ্রাউন্ড স্বচ্ছতা</label><input type="range" id="ba" min="0" max="100" value="55"><output id="bao">55%</output></div>
+<div class="row"><label for="sp">সাবটাইটেলের অবস্থান</label><select id="sp"><option value="b">নিচে</option><option value="m">মাঝখানে</option><option value="t">উপরে</option></select></div>
+</section><section class="pane">
+<div class="row"><label for="cf">কালার ফিল্টার</label><select id="cf"><option value="n">কোনোটি নয়</option><option value="cine">সিনেমাটিক</option><option value="warm">উষ্ণ</option><option value="cool">ঠান্ডা</option><option value="bw">সাদা-কালো</option><option value="vivid">ভিভিড</option><option value="fade">ফেডেড</option></select></div>
+<div class="row"><label for="cb">উজ্জ্বলতা</label><input type="range" id="cb" min="50" max="150" value="100"><output id="cbo">100%</output></div>
+<div class="row"><label for="cc">কনট্রাস্ট</label><input type="range" id="cc" min="50" max="150" value="100"><output id="cco">100%</output></div>
+<div class="row"><label for="kk">কারাওকে হাইলাইট</label><input type="checkbox" id="kk" style="accent-color:var(--acc);width:20px;height:20px"><input type="color" id="kc" value="#ffd400"></div>
+<div class="row"><label for="ti">ইন্ট্রো টাইটেল</label><input type="text" id="ti" placeholder="শুরুর শিরোনাম" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit"><select id="td" style="flex:0 0 72px"><option value="2">২ সে.</option><option value="3" selected>৩ সে.</option><option value="5">৫ সে.</option></select></div>
+<div class="row"><label for="pg">প্রোগ্রেস বার</label><input type="checkbox" id="pg" style="accent-color:var(--acc);width:20px;height:20px"><input type="color" id="pc" value="#ff3b5c"></div>
+<div class="row"><label for="dk">ভয়েসের সময় মিউজিক কমান</label><input type="checkbox" id="dk" checked style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="kb">জুম ইফেক্ট</label><select id="kb"><option value="n">নেই</option><option value="i">ধীরে জুম ইন</option><option value="o">ধীরে জুম আউট</option></select></div>
+<div class="row"><label for="mr">আয়না (মিরর)</label><input type="checkbox" id="mr" style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="vg">ভিনিয়েট</label><input type="checkbox" id="vg" style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="lb">সিনেমাটিক বার</label><input type="checkbox" id="lb" style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="tw">টাইপরাইটার লেখা</label><input type="checkbox" id="tw" style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="f5">লোগো ছবি</label><input type="file" id="f5" accept="image/*" style="flex:1;min-width:0;font-size:.8rem"><select id="lp" style="flex:0 0 72px"><option value="r">ডানে</option><option value="l">বামে</option></select></div>
+<div class="row"><label for="ls">লোগোর আকার</label><input type="range" id="ls" min="5" max="40" value="14"><output id="lso">14%</output></div>
+<div class="row"><label for="ot">আউট্রো টেক্সট</label><input type="text" id="ot" placeholder="শেষের বার্তা, যেমন: সাবস্ক্রাইব করুন" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit"></div>
+<div class="row"><label for="ts">ট্রিম: শুরু – শেষ (সে.)</label><input type="number" id="ts" min="0" step="0.1" value="0"><input type="number" id="te" min="0" step="0.1" value="0" title="0 মানে শেষ পর্যন্ত"></div>
+<div class="row"><label for="cp">অডিও কম্প্রেসর (ক্লিপিং রোধ)</label><input type="checkbox" id="cp" checked style="accent-color:var(--acc);width:20px;height:20px"></div>
+</section><section class="pane">
+<div class="row"><label for="ra">রেশিও</label><select id="ra"><option value="o">মূল ভিডিওর মতো</option><option value="9:16">9:16 (শর্টস/রিলস)</option><option value="16:9">16:9 (ইউটিউব)</option><option value="1:1">1:1 (স্কয়ার)</option></select></div>
+<div class="row"><label for="rs">রেজোলিউশন</label><select id="rs"><option value="960">960 px (হালকা)</option><option value="1280">1280 px (HD)</option><option value="1920" selected>1920 px (Full HD)</option></select></div>
+<div class="row"><label for="fr">ফ্রেম রেট</label><select id="fr"><option value="24">24 fps</option><option value="30" selected>30 fps</option><option value="60">60 fps</option></select></div>
+<div class="row"><label for="af">অডিও ফেড ইন/আউট</label><input type="checkbox" id="af" checked style="accent-color:var(--acc);width:20px;height:20px"></div>
+<div class="row"><label for="br">কোয়ালিটি</label><select id="br"><option value="4">ভালো (4 Mbps)</option><option value="8" selected>উচ্চ (8 Mbps)</option><option value="14">সর্বোচ্চ (14 Mbps)</option></select></div>
+
+</section></div></div>
+</div>
+<div id="out"><div class="card"><h2>রেন্ডার সম্পন্ন</h2><video id="rv" controls playsinline></video><a class="dl" id="dl"><button class="pri" type="button">ভিডিও ডাউনলোড</button></a> <button type="button" id="oc">বন্ধ করুন</button></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),c=cv.getContext('2d'),v=document.createElement('video');
+v.playsInline=true;v.preload='auto';
+let ctx,dest,mon,mix,comp,vG,aG,bG,bbuf=null,bsrc=null,graph=false,vbuf=null,vsrc=null,cues=[],playing=false,rendering=false,W=640,H=360,hasV=false;
+const val=id=>+$(id).value;
+const fmt=s=>{s=Math.max(0,s||0);return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0')};
+const say=t=>$('msg').textContent=t;
+
+function setup(){
+  if(graph)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  dest=ctx.createMediaStreamDestination();
+  mon=ctx.createGain();mon.connect(ctx.destination);
+  mix=ctx.createGain();comp=ctx.createDynamicsCompressor();mix.connect(comp);comp.connect(dest);comp.connect(mon);
+  vG=ctx.createGain();aG=ctx.createGain();bG=ctx.createGain();bG.connect(mix);
+  ctx.createMediaElementSource(v).connect(vG);
+  vG.connect(mix);aG.connect(mix);an=ctx.createAnalyser();an.fftSize=512;aG.connect(an);graph=true;gains();
+}
+function gains(){if(!graph)return;vG.gain.value=val('vv')/100;aG.gain.value=val('av')/100;bG.gain.value=val('bv')/100;comp.threshold.value=$('cp').checked?-10:0;comp.ratio.value=$('cp').checked?12:1}
+
+/* SRT */
+function parseSRT(t){
+  const out=[];
+  t=t.replace(/^\uFEFF/,'').replace(/\r/g,'').trim();
+  const sec=(h,m,s,f)=>+h*3600+ +m*60+ +s+ +('0.'+f);
+  for(const b of t.split(/\n{2,}/)){
+    const L=b.split('\n');
+    const i=L.findIndex(l=>l.includes('-->'));
+    if(i<0)continue;
+    const m=L[i].match(/(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)/);
+    if(!m)continue;
+    const txt=L.slice(i+1).join('\n').replace(/<[^>]+>/g,'').replace(/\{[^}]*\}/g,'').trim();
+    if(txt)out.push({s:sec(m[1],m[2],m[3],m[4]),e:sec(m[5],m[6],m[7],m[8]),t:txt});
+  }
+  return out.sort((a,b)=>a.s-b.s);
+}
+
+/* Drawing */
+function wrap(txt,maxW){
+  const res=[];
+  for(const para of txt.split('\n')){
+    let line='';
+    for(const w of para.split(/\s+/)){
+      const test=line?line+' '+w:w;
+      if(c.measureText(test).width>maxW&&line){res.push(line);line=w}else line=test;
+    }
+    res.push(line);
+  }
+  return res;
+}
+function draw(){
+  c.fillStyle='#000';c.fillRect(0,0,W,H);
+  c.save();
+  {const dd=((T1||v.duration||1)-T0)||1,p=Math.max(0,Math.min(1,(v.currentTime-T0)/dd)),kb=$('kb').value,z=kb==='i'?1+.12*p:kb==='o'?1.12-.12*p:1;c.translate(W/2,H/2);c.scale($('mr').checked?-z:z,z);c.translate(-W/2,-H/2)}
+  c.filter=vf();
+  if(hasV&&v.readyState>=2){
+    const vw=v.videoWidth,vh=v.videoHeight;
+    if($('ra').value==='o')c.drawImage(v,0,0,W,H);
+    else{
+      const cs=Math.max(W/vw,H/vh),sw=W/cs,sh=H/cs;
+      sc.drawImage(v,(vw-sw)/2,(vh-sh)/2,sw,sh,0,0,sb.width,sb.height);
+      c.drawImage(sb,0,0,W,H);c.fillStyle='rgba(0,0,0,.4)';c.fillRect(0,0,W,H);
+      const f=Math.min(W/vw,H/vh);c.drawImage(v,(W-vw*f)/2,(H-vh*f)/2,vw*f,vh*f);
+    }
+  }
+  c.restore();c.filter='none';
+  if($('vg').checked){const g=c.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.65)');c.fillStyle=g;c.fillRect(0,0,W,H)}
+  if($('lb').checked){c.fillStyle='#000';c.fillRect(0,0,W,H*.1);c.fillRect(0,H*.9,W,H*.1)}
+  if(logo){const lw=W*val('ls')/100,lgh=lw*logo.height/logo.width;c.drawImage(logo,$('lp').value==='r'?W-lw-W*.03:W*.03,H*.03,lw,lgh)}
+  const wm=$('wm').value.trim();
+  if(wm){const fs=H*0.035,r=$('wp').value==='r';c.save();c.globalAlpha=.75;c.font='700 '+fs+'px "'+$('ff').value+'",sans-serif';c.fillStyle='#fff';c.strokeStyle='rgba(0,0,0,.6)';c.lineWidth=fs*.1;c.textBaseline='top';c.textAlign=r?'right':'left';const x=r?W-fs:fs;c.strokeText(wm,x,fs);c.fillText(wm,x,fs);c.restore()}
+  const ti=$('ti').value.trim(),cur=v.currentTime-T0,tdur=+$('td').value;
+  if(ti&&cur<tdur){const al=Math.max(0,Math.min(1,cur/.5,(tdur-cur)/.6)),fs=H*.07;c.save();c.globalAlpha=al;c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,0,W,H);c.font='700 '+fs+'px "'+$('ff').value+'",sans-serif';c.textAlign='center';c.textBaseline='top';c.fillStyle='#fff';c.strokeStyle='rgba(0,0,0,.8)';c.lineJoin='round';c.lineWidth=fs*.1;const TL=wrap(ti,W*.85),th=TL.length*fs*1.3;TL.forEach((l,i)=>{const y=(H-th)/2+i*fs*1.3;c.strokeText(l,W/2,y);c.fillText(l,W/2,y)});c.restore()}
+  const ot=$('ot').value.trim(),dur=T1||v.duration||0,rem=dur-v.currentTime;
+  if(ot&&dur&&rem>=0&&rem<tdur)card(ot,Math.max(0,Math.min(1,rem/.6,(tdur-rem)/.5)));
+  if($('pg').checked&&v.duration){const ph=Math.max(3,H*.008);c.fillStyle='rgba(255,255,255,.25)';c.fillRect(0,H-ph,W,ph);c.fillStyle=$('pc').value;c.fillRect(0,H-ph,W*v.currentTime/v.duration,ph)}
+  const t=v.currentTime-val('so');
+  const q=cues.find(x=>t>=x.s&&t<x.e);
+  if(!q)return;
+  const size=H*val('sz')/100,lh=size*1.35;
+  c.globalAlpha=$('fd').checked?Math.max(0,Math.min(1,(t-q.s)/.25,(q.e-t)/.25)):1;
+  c.font='700 '+size+'px "'+$('ff').value+'",sans-serif';
+  c.textAlign='center';c.textBaseline='top';
+  const shown=$('tw').checked?q.t.slice(0,Math.ceil(q.t.length*Math.min(1,(t-q.s)/Math.max(.3,(q.e-q.s)*.7)))):q.t;const lines=wrap(shown,W*.9),total=lines.length*lh;
+  const pos=$('sp').value;const top=pos==='m'?(H-total)/2:pos==='t'?H*val('bt')/100+size*.2:H-H*val('bt')/100-total;
+  const a=val('ba')/100;
+  if(a>0){
+    const mw=Math.max(...lines.map(l=>c.measureText(l).width))+size*.9;
+    const hex=$('bg').value,r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    c.fillStyle='rgba('+r+','+g+','+b+','+a+')';
+    c.beginPath();c.roundRect((W-mw)/2,top-size*.2,mw,total+size*.35,size*.25);c.fill();
+  }
+  c.lineJoin='round';c.lineWidth=size*.12;c.strokeStyle='rgba(0,0,0,.85)';c.fillStyle=$('fc').value;
+  if($('kk').checked){
+    const words=q.t.replace(/\n/g,' ').split(/\s+/).filter(Boolean),n=words.length;
+    const act=Math.min(n-1,Math.floor(Math.max(0,Math.min(.999,(t-q.s)/Math.max(.2,q.e-q.s)))*n));
+    let wi=0;c.textAlign='left';
+    const spw=c.measureText(' ').width;
+    lines.forEach((l,i)=>{
+      const y=top+i*lh+(lh-size)/2,ws=l.split(' ').filter(Boolean);
+      let x=(W-c.measureText(ws.join(' ')).width)/2;
+      ws.forEach(w=>{c.strokeText(w,x,y);c.fillStyle=wi<=act?$('kc').value:$('fc').value;c.fillText(w,x,y);x+=c.measureText(w).width+spw;wi++});
+    });
+  }else lines.forEach((l,i)=>{const y=top+i*lh+(lh-size)/2;c.strokeText(l,W/2,y);c.fillText(l,W/2,y)});
+  c.globalAlpha=1;
+}
+function ui(){
+  const d=v.duration||0;
+  $('tm').textContent=fmt(v.currentTime)+' / '+fmt(d);
+  if(!rendering&&d)$('seek').value=v.currentTime/d*1000;
+  if(rendering&&d)$('pb').style.width=Math.min(100,Math.max(0,(v.currentTime-T0)/(((T1||d)-T0)||1)*100))+'%';
+}
+function tick(){if(rendering&&T1&&v.currentTime>=T1&&!v.paused){v.pause();v.dispatchEvent(new Event('ended'))}draw();ui();duck();autoSpeak();if(playing||rendering)requestAnimationFrame(tick)}
+
+/* Voice-over */
+function stopVoice(){if(vsrc){try{vsrc.stop()}catch(e){}vsrc.disconnect();vsrc=null}if(bsrc){try{bsrc.stop()}catch(e){}bsrc.disconnect();bsrc=null}}
+function startBgm(from){if(!bbuf)return;const s=ctx.createBufferSource();s.buffer=bbuf;s.loop=true;s.connect(bG);s.start(0,from%bbuf.duration);bsrc=s}
+function startVoice(from){
+  stopVoice();startBgm(from);if(!vbuf)return;
+  const s=ctx.createBufferSource();s.buffer=vbuf;s.connect(aG);
+  const pos=from-val('ao');
+  if(pos>=0){if(pos>=vbuf.duration)return;s.start(0,pos)}else s.start(ctx.currentTime-pos,0);
+  vsrc=s;
+}
+
+/* More premium: trim, logo, outro, presets, compressor */
+let T0=0,T1=0,logo=null;
+function card(txt,al){
+  const fs=H*.07;c.save();c.globalAlpha=al;c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,0,W,H);
+  c.font='700 '+fs+'px "'+$('ff').value+'",sans-serif';c.textAlign='center';c.textBaseline='top';c.fillStyle='#fff';c.strokeStyle='rgba(0,0,0,.8)';c.lineJoin='round';c.lineWidth=fs*.1;
+  const L=wrap(txt,W*.85),h=L.length*fs*1.3;
+  L.forEach((l,i)=>{const y=(H-h)/2+i*fs*1.3;c.strokeText(l,W/2,y);c.fillText(l,W/2,y)});c.restore();
+}
+$('f5').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{logo=im;draw()};im.src=URL.createObjectURL(f)};
+['lp','ls','tw','mr','vg','lb','kb','ot'].forEach(id=>{$(id).oninput=$(id).onchange=()=>{if(!playing&&!rendering)draw()}});
+$('ls').addEventListener('input',()=>{if(!playing&&!rendering)draw()});
+$('cp').onchange=gains;
+const PRE={
+  classic:{fc:'#ffffff',bg:'#000000',ba:55,sz:5.5,kk:false,ff:'Noto Sans Bengali'},
+  tiktok:{fc:'#ffe600',bg:'#000000',ba:0,sz:7,kk:true,kc:'#ffffff',ff:'Baloo Da 2'},
+  neon:{fc:'#7dfcff',bg:'#10002b',ba:70,sz:6,kk:false,ff:'Hind Siliguri'},
+  minimal:{fc:'#ffffff',bg:'#000000',ba:0,sz:4.5,kk:false,ff:'Noto Sans Bengali'}
+};
+async function applyPre(k){
+  const p=PRE[k];
+  for(const id in p){const e=$(id);if(e.type==='checkbox')e.checked=p[id];else e.value=p[id]}
+  ['sz','ba'].forEach(id=>$(id+'o').textContent=$(id).value+'%');
+  try{await document.fonts.load('700 40px "'+$('ff').value+'"','অ')}catch(_){}
+  draw();
+}
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>applyPre(b.dataset.p));
+
+/* Premium effects */
+const FILTERS={n:'',cine:'contrast(1.15) saturate(1.2) sepia(.15) brightness(.95)',warm:'sepia(.3) saturate(1.3) brightness(1.05)',cool:'saturate(1.1) hue-rotate(15deg) brightness(1.02)',bw:'grayscale(1) contrast(1.15)',vivid:'saturate(1.6) contrast(1.1)',fade:'contrast(.9) brightness(1.1) saturate(.8)'};
+function vf(){return FILTERS[$('cf').value]+' brightness('+val('cb')/100+') contrast('+val('cc')/100+')'}
+let an=null,duckF=1,adat=null;
+function duck(){
+  if(!graph||!an)return;
+  let f=1;
+  if($('dk').checked&&vbuf&&(playing||rendering)){
+    adat=adat||new Uint8Array(an.fftSize);an.getByteTimeDomainData(adat);
+    let s=0;for(let i=0;i<adat.length;i++){const x=(adat[i]-128)/128;s+=x*x}
+    f=Math.sqrt(s/adat.length)>0.02?0.25:1;
+  }
+  duckF+=(f-duckF)*.25;
+  vG.gain.value=val('vv')/100*duckF;bG.gain.value=val('bv')/100*duckF;
+}
+['cf','kk','kc','ti','td','pg','pc'].forEach(id=>{$(id).oninput=$(id).onchange=()=>{if(!playing&&!rendering)draw()}});
+
+/* Output size / ratio */
+const sb=document.createElement('canvas'),sc=sb.getContext('2d');
+function sizeCanvas(){
+  if(!v.videoWidth)return;
+  const L=+$('rs').value,r=$('ra').value;
+  if(r==='o'){const k=Math.min(1,L/Math.max(v.videoWidth,v.videoHeight));W=Math.round(v.videoWidth*k/2)*2;H=Math.round(v.videoHeight*k/2)*2}
+  else{const[a,b]=r.split(':').map(Number);if(a>=b){W=L;H=Math.round(L*b/a/2)*2}else{H=L;W=Math.round(L*a/b/2)*2}}
+  cv.width=W;cv.height=H;sb.width=24;sb.height=Math.max(2,Math.round(24*H/W));draw();
+}
+['ra','rs'].forEach(id=>$(id).onchange=()=>{if(!rendering)sizeCanvas()});
+$('sp').onchange=()=>{if(!playing&&!rendering)draw()};
+
+/* SRT editor, background music, font, effects */
+$('se').oninput=()=>{cues=parseSRT($('se').value);say(cues.length+' টি সাবটাইটেল লাইন পাওয়া গেছে।');if($('se').value.trim())$('d3').classList.add('ok');draw()};
+$('f4').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  setup();say('মিউজিক ডিকোড হচ্ছে…');
+  try{bbuf=await ctx.decodeAudioData(await f.arrayBuffer());mark(4,f.name+' ('+fmt(bbuf.duration)+')');say('ব্যাকগ্রাউন্ড মিউজিক যোগ হয়েছে, ভিডিও শেষ পর্যন্ত লুপ হবে।')}
+  catch(_){bbuf=null;say('মিউজিক ফাইল পড়া যায়নি।')}
+  if(playing)startVoice(v.currentTime);
+};
+$('ff').onchange=async()=>{try{await document.fonts.load('700 40px "'+$('ff').value+'"','অ')}catch(_){}draw()};
+['fd','wm','wp'].forEach(id=>{$(id).oninput=$(id).onchange=()=>{if(!playing&&!rendering)draw()}});
+
+/* Auto voice from SRT (device TTS) */
+let lastQ=null,voices=[];
+function loadVoices(){
+  voices=speechSynthesis.getVoices();
+  const s=$('vs');s.innerHTML='';
+  const bn=voices.filter(x=>/^bn/i.test(x.lang));
+  (bn.length?bn:voices).forEach(x=>{const o=document.createElement('option');o.value=x.voiceURI;o.textContent=x.name+' ('+x.lang+')';s.appendChild(o)});
+  $('tn').textContent=bn.length?'বাংলা কণ্ঠ পাওয়া গেছে।':'এই ডিভাইসে বাংলা কণ্ঠ পাওয়া যায়নি। ফোনের সেটিংসে Text-to-speech থেকে বাংলা ভয়েস ইনস্টল করুন।';
+}
+if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+else $('tn').textContent='এই ব্রাউজারে টেক্সট-টু-স্পিচ নেই।';
+function stopTTS(){if('speechSynthesis' in window)speechSynthesis.cancel();lastQ=null}
+function autoSpeak(){
+  if(!$('tt').checked||rendering||!playing||!('speechSynthesis' in window))return;
+  const t=v.currentTime-val('so');
+  const q=cues.find(x=>t>=x.s&&t<x.e);
+  if(q===lastQ)return;
+  lastQ=q;
+  if(!q||t-q.s>0.8)return;
+  const u=new SpeechSynthesisUtterance(q.t.replace(/\n/g,' '));
+  const vo=voices.find(x=>x.voiceURI===$('vs').value);
+  if(vo){u.voice=vo;u.lang=vo.lang}else u.lang='bn-BD';
+  let r=val('tr');
+  if($('tf').checked)r=Math.min(2,Math.max(.7,q.t.length/13/Math.max(.3,q.e-q.s)*val('tr')));
+  u.rate=r;
+  speechSynthesis.cancel();speechSynthesis.speak(u);
+}
+$('tr').oninput=()=>{$('tro').textContent=(+$('tr').value).toFixed(1)+'x'};
+$('tt').onchange=()=>{stopTTS();if($('tt').checked)say('অটো ভয়েস চালু। প্লে চাপলে SRT-এর লেখা ফোনের কণ্ঠে পড়া হবে।')};
+
+/* Playback */
+async function play(){
+  setup();await ctx.resume();mon.gain.value=1;
+  if(v.ended)v.currentTime=0;
+  await v.play();startVoice(v.currentTime);
+  playing=true;$('pp').textContent='বিরতি';tick();
+}
+function pause(){v.pause();stopVoice();stopTTS();playing=false;$('pp').textContent='প্লে'}
+$('pp').onclick=()=>playing?pause():play();
+v.addEventListener('ended',()=>{if(!rendering)pause()});
+$('seek').oninput=e=>{
+  if(!v.duration)return;
+  v.currentTime=e.target.value/1000*v.duration;
+  stopTTS();
+  if(playing&&!rendering)startVoice(v.currentTime);
+};
+v.addEventListener('seeked',()=>{if(!playing&&!rendering){draw();ui()}});
+
+/* Files */
+function mark(i,name){$('n'+i).textContent=name;$('d'+i).classList.add('ok')}
+$('f1').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  pause();hasV=false;
+  v.src=URL.createObjectURL(f);
+  v.onloadedmetadata=()=>{
+    sizeCanvas();
+  };
+  v.onloadeddata=async()=>{
+    hasV=true;setup();
+    try{await document.fonts.load('700 40px "Noto Sans Bengali"','অ')}catch(_){}
+    v.currentTime=0.01;
+    $('pp').disabled=$('seek').disabled=$('rb').disabled=false;
+    mark(1,f.name+' ('+fmt(v.duration)+')');say('ভিডিও তৈরি। চাইলে ভয়েস ওভার ও SRT যোগ করুন।');draw();ui();
+  };
+  v.onerror=()=>say('এই ভিডিও ফাইল ব্রাউজারে চালানো যাচ্ছে না। MP4 (H.264) বা WebM ব্যবহার করুন।');
+};
+$('f2').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  setup();say('ভয়েস ওভার ডিকোড হচ্ছে…');
+  try{vbuf=await ctx.decodeAudioData(await f.arrayBuffer());mark(2,f.name+' ('+fmt(vbuf.duration)+')');say('ভয়েস ওভার যোগ হয়েছে।')}
+  catch(_){vbuf=null;say('অডিও ফাইল পড়া যায়নি। MP3 বা WAV চেষ্টা করুন।')}
+  if(playing)startVoice(v.currentTime);
+};
+$('f3').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const tx=await f.text();$('se').value=tx;cues=parseSRT(tx);
+  if(cues.length){mark(3,f.name+' ('+cues.length+' লাইন)');say('SRT যোগ হয়েছে।')}
+  else say('SRT-তে কোনো বৈধ সাবটাইটেল পাওয়া যায়নি। ফাইল UTF-8 এনকোডিংয়ে সেভ করুন।');
+  draw();
+};
+[['vv','vvo'],['av','avo'],['bv','bvo'],['cb','cbo'],['cc','cco'],['ls','lso'],['sz','szo'],['bt','bto'],['ba','bao']].forEach(([a,b])=>{
+  $(a).oninput=()=>{$(b).textContent=$(a).value+'%';gains();if(!playing&&!rendering)draw()};
+});
+['fc','bg','so'].forEach(id=>$(id).oninput=()=>{if(!playing&&!rendering)draw()});
+$('ao').oninput=()=>{if(playing)startVoice(v.currentTime)};
+
+/* Render */
+function pickMime(){
+  return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']
+    .find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m));
+}
+let wl=null;
+$('rb').onclick=async()=>{
+  try{wl=await navigator.wakeLock.request('screen')}catch(_){}
+  const mt=pickMime();
+  if(!mt){say('এই ব্রাউজার ভিডিও রেন্ডার সমর্থন করে না। Chrome, Edge বা Safari ব্যবহার করুন।');return}
+  pause();setup();await ctx.resume();mon.gain.value=0;gains();
+  rendering=true;$('out').style.display='none';
+  $('rb').disabled=$('pp').disabled=$('seek').disabled=true;
+  $('prog').style.display='block';$('pb').style.width='0';
+  say($('tt').checked?'রেন্ডার চলছে। মনে রাখবেন, ফোনের নিজস্ব কণ্ঠ ফাইলে ঢোকানো যায় না। শুধু আপলোড করা ভয়েস ওভার থাকবে।':'রেন্ডার চলছে। শেষ না হওয়া পর্যন্ত এই ট্যাব খোলা রাখুন।');
+  T0=Math.max(0,+$('ts').value||0);T1=+$('te').value>T0?Math.min(+$('te').value,v.duration):0;v.currentTime=T0;
+  await Promise.race([new Promise(r=>v.addEventListener('seeked',r,{once:true})),new Promise(r=>setTimeout(r,600))]);
+  const st=cv.captureStream(+$('fr').value);
+  dest.stream.getAudioTracks().forEach(t=>st.addTrack(t));
+  const rec=new MediaRecorder(st,{mimeType:mt,videoBitsPerSecond:val('br')*1e6,audioBitsPerSecond:192000});
+  const chunks=[];
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{
+    rendering=false;stopVoice();mon.gain.value=1;try{wl&&wl.release();wl=null}catch(_){}mix.gain.cancelScheduledValues(0);mix.gain.value=1;T0=0;T1=0;
+    const type=mt.split(';')[0],ext=type.includes('mp4')?'mp4':'webm';
+    const url=URL.createObjectURL(new Blob(chunks,{type}));
+    $('rv').src=url;$('dl').href=url;$('dl').download='rendered-video.'+ext;
+    $('out').style.display='block';$('prog').style.display='none';
+    $('rb').disabled=$('pp').disabled=$('seek').disabled=false;
+    say('রেন্ডার সম্পন্ন ('+ext.toUpperCase()+')।');
+    v.currentTime=0.01;
+  };
+  v.addEventListener('ended',()=>{
+    const extra=vbuf?Math.max(0,val('ao')+vbuf.duration-(T1||v.duration)):0;
+    setTimeout(()=>rec.stop(),extra*1000+400);
+  },{once:true});
+  const now=ctx.currentTime,d=(T1||v.duration)-T0;
+  mix.gain.cancelScheduledValues(now);
+  if($('af').checked&&d>3){mix.gain.setValueAtTime(0,now);mix.gain.linearRampToValueAtTime(1,now+1);mix.gain.setValueAtTime(1,now+d-1);mix.gain.linearRampToValueAtTime(0,now+d)}else mix.gain.setValueAtTime(1,now);
+  rec.start(500);startVoice(T0);await v.play();tick();
+};
+/* Bottom sliding tabs */
+const tabBtns=[...document.querySelectorAll('#tabs button')];let curTab=0;
+function goTab(i){
+  curTab=Math.max(0,Math.min(tabBtns.length-1,i));
+  $('track').style.transform='translateX(-'+curTab*100+'%)';
+  tabBtns.forEach((b,j)=>b.classList.toggle('on',j===curTab));
+  const b=tabBtns[curTab];$('ind').style.left=b.offsetLeft+'px';$('ind').style.width=b.offsetWidth+'px';
+  b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+}
+tabBtns.forEach((b,i)=>b.onclick=()=>goTab(i));
+(()=>{
+  const dk=$('dock');let sx=0,sy=0,ok=false;
+  dk.addEventListener('touchstart',e=>{ok=!e.target.closest('input,select,textarea');sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+  dk.addEventListener('touchend',e=>{
+    if(!ok)return;const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5)goTab(curTab+(dx<0?1:-1));
+  },{passive:true});
+  dk.addEventListener('scroll',()=>{dk.scrollLeft=0});
+})();
+window.addEventListener('resize',()=>goTab(curTab));
+document.fonts.ready.then(()=>goTab(curTab));
+$('oc').onclick=()=>{$('out').style.display='none'};
+/* Android APK: save/share the rendered video */
+$('dl').addEventListener('click',async e=>{
+  const C=window.Capacitor;
+  if(!(C&&C.isNativePlatform&&C.isNativePlatform()&&C.Plugins&&C.Plugins.Filesystem))return;
+  e.preventDefault();
+  try{
+    say('ফাইল সেভ হচ্ছে…');
+    const blob=await (await fetch($('dl').href)).blob();
+    const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob)});
+    const name=$('dl').download||'rendered-video.webm';
+    const res=await C.Plugins.Filesystem.writeFile({path:name,data:b64,directory:'CACHE'});
+    await C.Plugins.Share.share({title:name,url:res.uri,dialogTitle:'ভিডিও সেভ বা শেয়ার করুন'});
+    say('সেভ/শেয়ার মেনু খোলা হয়েছে।');
+  }catch(err){say('সেভ করা যায়নি: '+(err&&err.message||err))}
+});
+goTab(0);
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+  KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Create Capacitor project
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+          cat > package.json <<'EOF'
+          {
+            "name": "srt-renderer",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "^6.2.0",
+              "@capacitor/android": "^6.2.0",
+              "@capacitor/filesystem": "^6.0.0",
+              "@capacitor/share": "^6.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^6.2.0"
+            }
+          }
+          EOF
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.srtrenderer.app",
+            "appName": "SRT Renderer",
+            "webDir": "www",
+            "server": { "androidScheme": "https" }
+          }
+          EOF
+          npm install
+          npx cap add android
+
+      - name: Keep screen on while the app is open
+        run: |
+          mkdir -p android/app/src/main/java/com/srtrenderer/app
+          cat > android/app/src/main/java/com/srtrenderer/app/MainActivity.java <<'EOF'
+          package com.srtrenderer.app;
+
+          import android.os.Bundle;
+          import android.view.WindowManager;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+          }
+          EOF
+
+      - name: Sync web assets
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          mkdir -p ../out
+          cp app/build/outputs/apk/debug/app-debug.apk ../out/SRT-Renderer-debug.apk
+
+      - name: Build signed release APK (only if secrets are set)
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.keystore" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          cp app/build/outputs/apk/release/app-release.apk ../out/SRT-Renderer-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SRT-Renderer-APK
+          path: out/*.apk
+
+      - name: Publish release (download APK from the Releases page)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: SRT Renderer build ${{ github.run_number }}
+          files: out/*.apk
